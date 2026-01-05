@@ -103,7 +103,7 @@ def main():
 
     print("\nDone! Access your KB:")
     print(f"  ChromaDB: ~/ai/knowledge-base/chromadb/{args.collection}")
-    print(f"  Neo4j: http://100.117.79.7:7474 (neo4j/agentmemory123)")
+    print(f"  Neo4j: http://localhost:7474 (neo4j/agentmemory123)")
 
 
 if __name__ == "__main__":

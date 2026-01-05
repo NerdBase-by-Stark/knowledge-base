@@ -7,7 +7,7 @@
 
 BASE="$HOME/ai/knowledge-base"
 SCRIPT="$BASE/scripts/kb_ingest_v3.py"
-SOURCE="/home/spark-bitch/gemini-cli/qsys_extraction_plan"
+SOURCE="${SOURCE_DIR:-$HOME/qsys_extraction_plan}"
 OUTPUT="$BASE/qsys-full-extract"
 COLLECTION="qsys-full"
 LOG="$OUTPUT/run_$(date +%Y%m%d_%H%M%S).log"

@@ -8,7 +8,8 @@ Reads vector metadata from Qdrant and creates:
 - Entity-to-Chunk MENTIONS relationships
 """
 import sys
-sys.path.insert(0, '/home/spark-bitch/ai/knowledge-base')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from collections import defaultdict
 from rich.console import Console

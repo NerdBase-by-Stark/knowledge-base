@@ -6,7 +6,7 @@
 
 BASE="$HOME/ai/knowledge-base"
 SCRIPT="$BASE/scripts/kb_ingest_v3.py"
-SOURCE="/home/spark-bitch/gemini-cli/qsys_extraction_plan"
+SOURCE="${SOURCE_DIR:-$HOME/qsys_extraction_plan}"
 OUTPUT="$BASE/qsys-full-extract"
 COLLECTION="qsys-full"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -45,7 +45,7 @@ if [ $EXIT_CODE -eq 0 ]; then
     echo ""
     echo "[$(date)] All done!"
     echo "  ChromaDB collection: $COLLECTION"
-    echo "  Neo4j: http://100.117.79.7:7474"
+    echo "  Neo4j: http://localhost:7474"
 else
     echo ""
     echo "[$(date)] Extraction failed with exit code $EXIT_CODE"

@@ -1,142 +1,81 @@
 # Knowledge Base System
 
-## What is this? (Plain English)
+A local-first RAG system that actually understands your documents. Built for people who need semantic search without the cloud dependency.
 
-Think of this as a **super-smart filing cabinet** that can actually read and understand your documents. Here's what it does:
+## Why I built this
 
-**The Problem:** You have hundreds of documents - PDFs, Word files, websites, slides - and finding the right information is a pain. Regular search only finds exact word matches, so if you search for "how to fix X" but your document says "repairing X", you're out of luck.
+I needed something that could:
 
-**The Solution:** This system reads your documents and understands what they actually *mean*. It can:
-- Read almost any file type (PDF, Word, PowerPoint, Excel, websites, even images with text)
-- Answer questions by finding relevant information across all your documents
-- Show connections between topics (like how "GPIO" relates to "Control Systems")
-- Work entirely on your own computer - nothing gets sent to the cloud
+1. **Work offline** - No API calls, no token costs, no data leaving my machine
+2. **Understand context** - Not just keyword matching, but actual semantic search
+3. **Handle any format** - PDFs, docs, slides, whatever I throw at it
+4. **Scale reasonably** - Thousands of documents without falling over
 
-**Real-world example:** You're working with Q-SYS audio systems and ask "How do I configure GPIO for relay control?" Instead of giving you a list of files with the word "GPIO" in them, it finds the exact section explaining the setup steps, even if those exact words aren't in the document.
+Traditional search is frustrating because it only finds exact matches. If you search for "how to fix X" but your document says "repairing X", you're out of luck. This system bridges that gap using embeddings and knowledge graphs.
 
-**Why this exists:** Modern AI (like ChatGPT) is great but requires internet, costs money per use, and has privacy concerns. This system runs locally on your own hardware using open-source models, giving you similar AI-powered search without those limitations.
+## What it actually does
 
----
+- **Ingests documents** in all common formats (PDF, DOCX, PPTX, XLSX, HTML, MD, images with OCR)
+- **Builds three storage layers**: Qdrant for vectors, Neo4j for relationships, PostgreSQL for keyword search
+- **Lets you query naturally** - ask questions in plain language, get relevant answers
+- **Runs everything locally** - Ollama for LLM stuff, BGE-M3 for embeddings
 
-## Technical Summary
+## Quick Start
 
-A production-ready knowledge base combining vector search (Qdrant), knowledge graphs (Neo4j), and hybrid retrieval powered by local embeddings (BGE-M3).
+```bash
+# Clone and install
+git clone https://github.com/NerdBase-by-Stark/knowledge-base.git
+cd knowledge-base
+pip install -r requirements.txt
 
-## Features
+# Start the databases
+docker compose up -d
 
-- **Multi-Modal Ingestion**: PDF, DOCX, PPTX, XLSX, HTML, Markdown, Images (OCR)
-- **Hybrid Search**: Vector similarity + keyword matching (BM25) + graph traversal
-- **Triple Storage**: Qdrant (vectors) + Neo4j (graph) + PostgreSQL (BM25)
-- **Local LLM Integration**: Works with Ollama for private AI processing
-- **REST API**: FastAPI endpoints for all operations
-- **Visualization Dashboard**: Streamlit interface for search and exploration
-- **Monitoring Dashboard**: Track ingestion progress, system stats, and performance metrics
+# Initialize and ingest
+python cli.py init
+python cli.py ingest /path/to/docs -c my_collection
+
+# Search
+python cli.py search "your query" --mode hybrid
+
+# Start the dashboard
+python cli.py serve --dashboard
+# http://localhost:8501
+```
 
 ## Architecture
 
 ```
-Document Sources → Docling Processing → Embeddings (BGE-M3)
-                                              ↓
-                    ┌─────────────────────────┼─────────────────────────┐
-                    ↓                         ↓                         ↓
-              Qdrant (Vectors)         Neo4j (Graph)           PostgreSQL (BM25)
-                    └─────────────────────────┼─────────────────────────┘
-                                              ↓
-                                    LlamaIndex Orchestration
-                                              ↓
-                              Streamlit Dashboard / FastAPI
-```
-
-## Quick Start
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3.10+
-- NVIDIA GPU (optional, for acceleration)
-
-### 1. Clone and Install
-
-```bash
-cd ~/ai/knowledge-base
-pip install -r requirements.txt
-```
-
-### 2. Start Services
-
-```bash
-docker compose up -d
-```
-
-### 3. Initialize Knowledge Base
-
-```bash
-python cli.py init
-```
-
-### 4. Ingest Documents
-
-```bash
-# Single file
-python cli.py ingest /path/to/document.pdf -c my_collection
-
-# Directory of markdown files
-python cli.py ingest /path/to/docs -c my_collection --ext md
-
-# All supported formats
-python cli.py ingest /path/to/docs -c my_collection
-```
-
-### 5. Search
-
-```bash
-python cli.py search "your query here" --mode hybrid
-```
-
-### 6. Start Services
-
-```bash
-# API only
-python cli.py serve
-
-# API + Dashboard
-python cli.py serve --dashboard
-
-# Or use scripts
-./scripts/run_api.sh       # API on :8000
-./scripts/run_dashboard.sh  # Dashboard on :8501
+Documents → Docling → Embeddings (BGE-M3)
+                  ↓
+    ┌─────────────┼─────────────┐
+    ↓             ↓             ↓
+Qdrant       Neo4j        PostgreSQL
+(vectors)    (graph)      (keywords)
+    └─────────────┼─────────────┘
+                  ↓
+        Hybrid Search + LLM API
 ```
 
 ## Access Points
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| **API Docs** | http://localhost:8000/docs | Swagger UI |
-| **Search Dashboard** | http://localhost:8501 | Streamlit visualization |
-| **Monitoring Dashboard** | http://localhost:8502 | Ingestion stats & metrics |
-| **Qdrant UI** | http://localhost:6333/dashboard | Vector space explorer |
-| **Neo4j Browser** | http://localhost:7474 | Graph visualization |
-
-## Supported Formats
-
-- **PDF** - Full OCR and table extraction
-- **DOCX** - Microsoft Word documents
-- **PPTX** - PowerPoint presentations
-- **XLSX** - Excel spreadsheets
-- **HTML** - Web pages
-- **Markdown** - Optimized fast processing
-- **Images** - PNG, JPG, TIFF (with OCR)
+| Service | URL | Purpose |
+|---------|-----|---------|
+| API | http://localhost:8000/docs | REST endpoints |
+| Dashboard | http://localhost:8501 | Search UI |
+| Monitoring | http://localhost:8502 | Ingestion stats |
+| Qdrant | http://localhost:6333/dashboard | Vector explorer |
+| Neo4j | http://localhost:7474 | Graph browser |
 
 ## Python API
 
 ```python
 from src.knowledge_base import KnowledgeBase
 
-# Initialize
 kb = KnowledgeBase()
 kb.initialize()
 
-# Ingest
+# Ingest documents
 doc_id = kb.ingest_file("document.pdf", collection="my_kb")
 doc_ids = kb.ingest_directory("/path/to/docs", collection="my_kb")
 
@@ -144,26 +83,6 @@ doc_ids = kb.ingest_directory("/path/to/docs", collection="my_kb")
 results = kb.search("query", limit=10, mode="hybrid")
 for r in results:
     print(f"{r.score:.3f} - {r.document_title}: {r.content[:100]}")
-
-# Stats
-kb.print_stats()
-```
-
-## REST API Examples
-
-```bash
-# Search
-curl -X POST http://localhost:8000/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "how to configure security", "limit": 5}'
-
-# Ingest text
-curl -X POST http://localhost:8000/ingest/text \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Your content here", "title": "My Doc", "collection": "default"}'
-
-# Get stats
-curl http://localhost:8000/stats
 ```
 
 ## Configuration
@@ -183,43 +102,36 @@ Environment variables (prefix with `KB_`):
 ## Project Structure
 
 ```
-~/ai/knowledge-base/
+knowledge-base/
 ├── docker-compose.yml     # Qdrant + PostgreSQL
-├── cli.py                 # Command-line interface
-├── requirements.txt       # Python dependencies
+├── cli.py                 # CLI interface
+├── requirements.txt       # Dependencies
 ├── config/
-│   ├── qdrant.yaml        # Qdrant configuration
-│   └── postgres-init.sql  # Database schema
-├── data/                  # Persistent storage (gitignored)
-│   ├── qdrant/
-│   └── postgres/
-├── scripts/
-│   ├── run_api.sh
-│   └── run_dashboard.sh
+│   ├── qdrant.yaml
+│   └── postgres-init.sql
+├── data/                  # Runtime data (gitignored)
+├── scripts/               # Utility scripts
 └── src/
-    ├── config.py          # Settings
+    ├── config.py
     ├── embeddings.py      # BGE-M3 service
     ├── document_processor.py  # Docling pipeline
     ├── vector_store.py    # Qdrant operations
     ├── graph_store.py     # Neo4j operations
-    ├── knowledge_base.py  # Unified interface
-    ├── api.py             # FastAPI endpoints
-    └── dashboard.py       # Streamlit UI
+    ├── knowledge_base.py  # Main interface
+    ├── api.py             # FastAPI
+    └── dashboard.py       # Streamlit
 ```
-
-## Development Status
-
-This project is currently in **Final Beta**. Core features are implemented and tested.
 
 ## Tips
 
-1. **GPU Acceleration**: The system auto-detects CUDA. For best performance, ensure GPU is available.
+- **GPU helps** but isn't required - system auto-detects CUDA
+- **Hybrid mode** gives the best search results (vectors + keywords + graph)
+- **Use collections** to separate different knowledge domains
+- Background jobs via API for large ingestions
 
-2. **Large Ingestions**: Use background tasks via the API for large directories.
+## Status
 
-3. **Hybrid Search**: Combines vector similarity with keyword matching for best results.
-
-4. **Collections**: Use collections to organize different knowledge domains.
+Currently in final beta. Core features work, but expect rough edges.
 
 ## License
 
