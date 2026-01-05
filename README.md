@@ -1,5 +1,25 @@
 # Knowledge Base System
 
+## What is this? (Plain English)
+
+Think of this as a **super-smart filing cabinet** that can actually read and understand your documents. Here's what it does:
+
+**The Problem:** You have hundreds of documents - PDFs, Word files, websites, slides - and finding the right information is a pain. Regular search only finds exact word matches, so if you search for "how to fix X" but your document says "repairing X", you're out of luck.
+
+**The Solution:** This system reads your documents and understands what they actually *mean*. It can:
+- Read almost any file type (PDF, Word, PowerPoint, Excel, websites, even images with text)
+- Answer questions by finding relevant information across all your documents
+- Show connections between topics (like how "GPIO" relates to "Control Systems")
+- Work entirely on your own computer - nothing gets sent to the cloud
+
+**Real-world example:** You're working with Q-SYS audio systems and ask "How do I configure GPIO for relay control?" Instead of giving you a list of files with the word "GPIO" in them, it finds the exact section explaining the setup steps, even if those exact words aren't in the document.
+
+**Why this exists:** Modern AI (like ChatGPT) is great but requires internet, costs money per use, and has privacy concerns. This system runs locally on your own hardware using open-source models, giving you similar AI-powered search without those limitations.
+
+---
+
+## Technical Summary
+
 A production-ready knowledge base combining vector search (Qdrant), knowledge graphs (Neo4j), and hybrid retrieval powered by local embeddings (BGE-M3).
 
 ## Features
@@ -9,7 +29,8 @@ A production-ready knowledge base combining vector search (Qdrant), knowledge gr
 - **Triple Storage**: Qdrant (vectors) + Neo4j (graph) + PostgreSQL (BM25)
 - **Local LLM Integration**: Works with Ollama for private AI processing
 - **REST API**: FastAPI endpoints for all operations
-- **Dashboard**: Streamlit visualization interface
+- **Visualization Dashboard**: Streamlit interface for search and exploration
+- **Monitoring Dashboard**: Track ingestion progress, system stats, and performance metrics
 
 ## Architecture
 
@@ -91,7 +112,8 @@ python cli.py serve --dashboard
 | Service | URL | Description |
 |---------|-----|-------------|
 | **API Docs** | http://localhost:8000/docs | Swagger UI |
-| **Dashboard** | http://localhost:8501 | Streamlit visualization |
+| **Search Dashboard** | http://localhost:8501 | Streamlit visualization |
+| **Monitoring Dashboard** | http://localhost:8502 | Ingestion stats & metrics |
 | **Qdrant UI** | http://localhost:6333/dashboard | Vector space explorer |
 | **Neo4j Browser** | http://localhost:7474 | Graph visualization |
 
