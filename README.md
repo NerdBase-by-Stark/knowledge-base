@@ -1,6 +1,42 @@
 # Knowledge Base System
 
-A local-first RAG (Retrieval-Augmented Generation) system that actually understands your documents. Built for people who need semantic search without the cloud dependency.
+A local-first RAG (Retrieval-Augmented Generation) system that **converts your documents into intelligent, queryable formats**.
+
+## What this actually does
+
+**Your documents go in → Three queryable knowledge bases come out**
+
+This system transforms static files (PDFs, docs, web pages) into three different intelligent representations that you can query in ways the original files never allowed:
+
+| Your Original File | Becomes... | What you can now do |
+|-------------------|------------|---------------------|
+| `manual.pdf` | **Vector embeddings** (Qdrant) | Find content by *meaning*, not just keywords |
+| `manual.pdf` | **Knowledge graph** (Neo4j) | Explore relationships between concepts |
+| `manual.pdf` | **Full-text index** (PostgreSQL) | Fast exact phrase searches |
+
+**The key insight:** Once your documents are converted, you can query them instantly, discover hidden connections, and get answers with exact source citations. No more reading through hundreds of pages to find one piece of information.
+
+### Before and After
+
+**Before (static files):**
+```
+manual.pdf
+├── You search: "how to configure relay"
+├── Result: File contains 500 pages, good luck
+└── You read... page 1, page 2, page 47...
+```
+
+**After (converted knowledge base):**
+```
+manual.pdf → Converted → Three databases
+
+You search: "how to configure relay"
+├── Vector DB: Found 3 relevant sections (meaning match)
+├── Graph DB: Relay connects to GPIO → Core 110f
+├── Keyword DB: Exact phrase on page 47
+└── Answer: "Section 4.2: Configure GPIO pins 1-4 as..."
+           Source: manual.pdf, page 47
+```
 
 ## Why I built this
 
