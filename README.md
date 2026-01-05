@@ -1,4 +1,4 @@
-# Knowledge Base System
+# Knowledge Base System Builder via Local LLM ingest with Entity Scoring 
 
 A local-first RAG (Retrieval-Augmented Generation) system that **converts your documents into intelligent, queryable formats**.
 
