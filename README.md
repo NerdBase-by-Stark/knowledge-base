@@ -131,18 +131,136 @@ python cli.py serve --dashboard
 # http://localhost:8501
 ```
 
-## Architecture
+## Architecture & Information Flow
+
+### Complete Data Flow Diagram
 
 ```
-Documents → Docling → Embeddings (BGE-M3)
-                  ↓
-    ┌─────────────┼─────────────┐
-    ↓             ↓             ↓
-Qdrant       Neo4j        PostgreSQL
-(vectors)    (graph)      (keywords)
-    └─────────────┼─────────────┘
-                  ↓
-        Hybrid Search + LLM API
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              INGESTION PHASE                               │
+│                    (Run once per document/update)                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Document Files
+       │
+       ▼
+  ┌─────────┐
+  │ Docling │  ← Extracts text from PDF, DOCX, PPTX, images (OCR)
+  └────┬────┘
+       │
+       ▼
+  ┌─────────────────┐
+  │  Chunk & Split  │  ← Breaks into ~500 token chunks with overlap
+  └────┬────────────┘
+       │
+       ├─────────────────────────────────────────────────────────────┐
+       │                                                             │
+       ▼                                                             ▼
+  ┌──────────────┐                                          ┌──────────────┐
+  │ BGE-M3       │                                          │ LLM Entity    │
+  │ Embeddings   │                                          │ Extraction   │
+  │ (local)      │                                          │ (Ollama)      │
+  └──────┬───────┘                                          └──────┬───────┘
+         │                                                          │
+         │  [0.234, -0.567, ...]                                  │ GPIO, Core,
+         │                                                          │ QSC, Relay...
+         │                                                          │
+         ▼                                                          ▼
+  ┌──────────────┐                                          ┌──────────────┐
+  │   Qdrant     │                                          │    Neo4j     │
+  │  (Vectors)   │                                          │   (Graph)    │
+  │              │                                          │              │
+  │ Chunk 1: [a] │                                          │ (GPIO)-[:FOR]│
+  │ Chunk 2: [b] │                                          │     ->(Relay) │
+  │ Chunk 3: [c] │                                          │ (Core)-[:MADE]│
+  └──────────────┘                                          │    ->(QSC)   │
+                                                            └──────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                               QUERY PHASE                                  │
+│                        (Run every search - fast)                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  User Query: "How do I configure GPIO for relays?"
+       │
+       ▼
+  ┌─────────────────┐
+  │ Query Embedding │  ← Convert question to vector
+  └────┬────────────┘
+       │
+       ├─────────────────────────────────────────────────────────────┐
+       │                                                             │
+       ▼                                                             ▼
+  ┌──────────────┐                                          ┌──────────────┐
+  │ Vector Search│                                          │Graph Traversal│
+  │ (Qdrant)     │                                          │ (Neo4j)       │
+  │              │                                          │              │
+  │ Find chunks  │                                          │ Find GPIO →  │
+  │ with similar │                                          │ Relay path   │
+  │ meaning      │                                          │              │
+  └──────┬───────┘                                          └──────┬───────┘
+         │                                                          │
+         │ Chunk 2 (0.89 match)                                     │ GPIO → Relay
+         │ Chunk 7 (0.82 match)                                     │ → Core 110f
+         │ Chunk 15 (0.76 match)                                    │
+         │                                                          │
+         └──────────────────────┬───────────────────────────────────┘
+                                ▼
+                       ┌──────────────────┐
+                       │ PostgreSQL       │
+                       │ Keyword Search   │
+                       │ (exact matches)  │
+                       └────────┬─────────┘
+                                │
+                                ▼
+                       ┌──────────────────┐
+                       │  Rank & Combine  │
+                       │                  │
+                       │ 1. Chunk 2      │
+                       │ 2. Chunk 7      │
+                       │ 3. Chunk 15     │
+                       └────────┬─────────┘
+                                │
+                                ▼
+                       ┌──────────────────┐
+                       │    LLM Synthesize│
+                       │    (Ollama)      │
+                       │                  │
+                       │ "According to    │
+                       │  Core 110f docs  │
+                       │  section 4.2..." │
+                       └────────┬─────────┘
+                                │
+                                ▼
+                      ┌─────────────────────┐
+                      │  Response + Sources │
+                      │                     │
+                      │ Answer: [text]      │
+                      │ Source: doc.pdf:42  │
+                      │ Confidence: 0.89    │
+                      └─────────────────────┘
+```
+
+### Component Summary
+
+| Component | Purpose | Technology |
+|-----------|---------|------------|
+| **Docling** | Document parsing (PDF, images, etc.) | IBM Docling |
+| **BGE-M3** | Convert text to meaning vectors | FlagEmbedding |
+| **Qdrant** | Vector similarity search | Vector DB |
+| **Neo4j** | Knowledge graph, relationships | Graph DB |
+| **PostgreSQL** | Full-text keyword search | Relational DB |
+| **Ollama** | Local LLM for entities + answers | Llama/Qwen/etc |
+
+### Why Three Databases?
+
+Each database excels at different queries:
+
+```
+"What documents mention GPIO?"           → PostgreSQL (keyword)
+"What's similar to 'relay control'?"    → Qdrant (vector)
+"What's related to the Core 110f?"      → Neo4j (graph)
+"How do I wire relays to GPIO pins?"    → Hybrid (all three)
 ```
 
 ## Access Points
