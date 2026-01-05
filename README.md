@@ -1,6 +1,6 @@
 # Knowledge Base System
 
-A local-first RAG system that actually understands your documents. Built for people who need semantic search without the cloud dependency.
+A local-first RAG (Retrieval-Augmented Generation) system that actually understands your documents. Built for people who need semantic search without the cloud dependency.
 
 ## Why I built this
 
@@ -10,15 +10,103 @@ I needed something that could:
 2. **Understand context** - Not just keyword matching, but actual semantic search
 3. **Handle any format** - PDFs, docs, slides, whatever I throw at it
 4. **Scale reasonably** - Thousands of documents without falling over
+5. **Be trustworthy** - Answers backed by actual sources, not AI hallucinations
 
-Traditional search is frustrating because it only finds exact matches. If you search for "how to fix X" but your document says "repairing X", you're out of luck. This system bridges that gap using embeddings and knowledge graphs.
+## Why not just use an LLM to search files?
 
-## What it actually does
+Great question. When you ask ChatGPT or a local LLM to "search my files," here's what actually happens:
 
-- **Ingests documents** in all common formats (PDF, DOCX, PPTX, XLSX, HTML, MD, images with OCR)
-- **Builds three storage layers**: Qdrant for vectors, Neo4j for relationships, PostgreSQL for keyword search
-- **Lets you query naturally** - ask questions in plain language, get relevant answers
-- **Runs everything locally** - Ollama for LLM stuff, BGE-M3 for embeddings
+| Approach | How it works | Problems |
+|----------|--------------|----------|
+| **LLM File Search** | LLM reads files one by one, loads them into context window | • Limited by context window (can't read 1000s of files)<br>• Slow - has to read everything each time<br>• Expensive API calls or slow local processing<br>• No memory between searches<br>• Can hallucinate - makes things up |
+| **This RAG System** | Documents pre-processed, embedded, stored in specialized databases | • Instant retrieval from indexed data<br>• Scales to 100,000+ documents<br>• One-time cost, then fast forever<br>• Tracks relationships between concepts<br>• Every answer cites its source |
+
+### The key difference: Provenance
+
+When this system gives you an answer, it tells you **exactly** which document and which chunk it came from. You can verify it. An LLM just searching files might confidently tell you something that isn't actually there.
+
+## How it works (the "noob" explanation)
+
+### Step 1: Ingestion (one-time setup)
+
+When you feed documents into the system, it does three things with each chunk of text:
+
+```
+Original text: "The GPIO pins on the Q-SYS Core 110f can be configured for relay control"
+```
+
+**1. Vector Storage (Qdrant)** - Converts text to numbers representing meaning:
+```
+[0.234, -0.567, 0.891, ...]  ← 1024 numbers that capture "what this means"
+```
+This lets you find similar content even with different words. Search "relay output" and it finds this because the *meaning* is close.
+
+**2. Graph Storage (Neo4j)** - Extracts entities and relationships:
+```
+(:GPIO)-[:CONFIGURED_FOR]->(:RelayControl)
+(:GPIO)-[:PART_OF]->(:Core110f)
+(:Core110f)-[:MANUFACTURED_BY]->(:QSC)
+```
+This lets you traverse connections. "Show me all GPIO-related features" finds everything connected to GPIO.
+
+**3. Keyword Storage (PostgreSQL)** - Traditional full-text search:
+```
+indexed as: gpio, pins, q-sys, core, 110f, configured, relay, control
+```
+This catches exact matches fast.
+
+### Step 2: Query (fast retrieval)
+
+When you search "how do I use relays with GPIO", the system:
+
+1. **Vector search** finds chunks with similar meaning (even if they say "relay output" not "relay")
+2. **Graph traversal** finds related entities (GPIO → Relay → Control → Core)
+3. **Keyword search** catches exact phrase matches
+4. **Results combined and ranked** - best matches first
+5. **LLM synthesizes** an answer citing the specific chunks
+
+## What the graph actually looks like
+
+Fire up the Neo4j browser at http://localhost:7474 and you'll see something like this:
+
+```
+        ┌─────────────┐
+        │   QSC Core  │
+        │   110f      │
+        └──────┬──────┘
+               │
+       ┌───────┼────────┐
+       │       │        │
+       ↓       ↓        ↓
+   ┌──────┐ ┌──────┐ ┌──────┐
+   │ GPIO │ │Audio │ │Network│
+   └───┬──┘ └───┬──┘ └───┬──┘
+       │        │        │
+       ↓        ↓        ↓
+   ┌──────┐ ┌──────┐ ┌──────┐
+   │Relay │ │DSP   │ │Dante │
+   └──────┘ └──────┘ └──────┘
+```
+
+**Example query:** `MATCH (g:GPIO {name: "Relay Control"})<-[:RELATES_TO*]-(related) RETURN related`
+
+This would find everything connected to GPIO relay control - the Core model, related audio routing, configuration steps, etc. You can't do this with keyword search.
+
+## Example: Why this matters
+
+### Scenario: You're building a Q-SYS audio system
+
+**Question:** "Can I use GPIO for both input and output on the same Core?"
+
+**Traditional LLM search:**
+> "Yes, many Cores support bidirectional GPIO. Check your documentation."
+> ← Helpful, but vague. Which Cores? Where's the proof?
+
+**This RAG system:**
+> "According to the Core 110f Hardware Guide (section 4.2): 'Each GPIO pin can be individually configured as input or output, but not both simultaneously.' For bidirectional control, use two separate pins or the Control Scripting feature."
+> ← Specific, sourced, verifiable. You know exactly which document and page it came from.
+
+The difference matters when you're building real systems.
 
 ## Quick Start
 
@@ -128,6 +216,15 @@ knowledge-base/
 - **Hybrid mode** gives the best search results (vectors + keywords + graph)
 - **Use collections** to separate different knowledge domains
 - Background jobs via API for large ingestions
+- **Explore the graph** at http://localhost:7474 to see relationships
+
+## Further Reading
+
+If you're new to RAG and vector databases:
+
+- **Vector Search Explained**: Think of it like a library where books are shelved by "meaning" instead of alphabetically. Books on similar topics end up nearby, even if they use different words.
+- **Knowledge Graphs**: Like a mind map of your documents. Concepts are nodes, relationships are edges. You can discover connections you'd never find with search.
+- **Why Hybrid?**: Each approach has blind spots. Vectors miss exact matches. Keywords miss synonyms. Graphs miss unconnected context. Combine them = best results.
 
 ## Status
 
