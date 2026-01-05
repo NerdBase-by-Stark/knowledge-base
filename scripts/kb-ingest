@@ -1,0 +1,128 @@
+#!/bin/bash
+#
+# KB-INGEST - Simple wrapper for robust KB ingestion
+# ==================================================
+#
+# Usage:
+#   kb-ingest <source_dir> [collection_name] [options]
+#
+# Examples:
+#   kb-ingest ~/docs/qsys                    # Auto-names collection
+#   kb-ingest ~/docs/qsys my-kb              # Named collection
+#   kb-ingest ~/docs/qsys my-kb --dry-run    # Test without storing
+#   kb-ingest ~/docs/qsys --model qwen2.5:32b
+#
+# Options are passed through to kb_ingest_robust.py
+#
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_SCRIPT="$SCRIPT_DIR/kb_ingest_robust.py"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+print_usage() {
+    echo -e "${BLUE}KB-INGEST${NC} - Robust Knowledge Base Ingestion"
+    echo ""
+    echo -e "${YELLOW}Usage:${NC}"
+    echo "  kb-ingest <source_dir> [collection_name] [options]"
+    echo ""
+    echo -e "${YELLOW}Examples:${NC}"
+    echo "  kb-ingest ~/docs/qsys                          # Auto-name collection"
+    echo "  kb-ingest ~/docs/qsys my-knowledge-base        # Named collection"
+    echo "  kb-ingest ~/docs/qsys --model qwen2.5:32b      # Use different model"
+    echo "  kb-ingest ~/docs/qsys --dry-run --verbose      # Test run"
+    echo "  kb-ingest ~/docs/qsys --threshold 0.03         # Stricter convergence"
+    echo ""
+    echo -e "${YELLOW}Options:${NC}"
+    echo "  --model, -m        Ollama model (default: llama3.1:8b)"
+    echo "  --threshold, -t    Convergence threshold (default: 0.05 = 5%)"
+    echo "  --max-runs         Max extraction runs (default: 10)"
+    echo "  --dry-run          Extract without storing"
+    echo "  --verbose, -v      Show detailed progress"
+    echo "  --skip-graph       Skip Neo4j linking"
+    echo "  --help, -h         Show this help"
+    echo ""
+    echo -e "${YELLOW}Models (recommended):${NC}"
+    echo "  llama3.1:8b        Best speed/quality (default)"
+    echo "  qwen2.5:32b        Best quality (slower)"
+    echo "  mistral:latest     Good balance"
+    echo "  qwen3:latest       Thinking model (auto-detected)"
+    echo ""
+}
+
+# Check if Python script exists
+if [ ! -f "$PYTHON_SCRIPT" ]; then
+    echo -e "${RED}Error: kb_ingest_robust.py not found at $PYTHON_SCRIPT${NC}"
+    exit 1
+fi
+
+# No arguments - show help
+if [ $# -eq 0 ]; then
+    print_usage
+    exit 0
+fi
+
+# Help flag
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    print_usage
+    exit 0
+fi
+
+# Parse arguments
+SOURCE_DIR=""
+COLLECTION=""
+EXTRA_ARGS=()
+
+# First positional arg is source dir
+if [[ ! "$1" =~ ^- ]]; then
+    SOURCE_DIR="$1"
+    shift
+fi
+
+# Second positional arg (if not a flag) is collection name
+if [ $# -gt 0 ] && [[ ! "$1" =~ ^- ]]; then
+    COLLECTION="$1"
+    shift
+fi
+
+# Rest are options
+EXTRA_ARGS=("$@")
+
+# Validate source dir
+if [ -z "$SOURCE_DIR" ]; then
+    echo -e "${RED}Error: Source directory required${NC}"
+    print_usage
+    exit 1
+fi
+
+if [ ! -d "$SOURCE_DIR" ]; then
+    echo -e "${RED}Error: Source directory not found: $SOURCE_DIR${NC}"
+    exit 1
+fi
+
+# Build command
+CMD=(python3 "$PYTHON_SCRIPT" --source "$SOURCE_DIR")
+
+if [ -n "$COLLECTION" ]; then
+    CMD+=(--collection "$COLLECTION")
+fi
+
+CMD+=("${EXTRA_ARGS[@]}")
+
+# Show what we're doing
+echo -e "${GREEN}Starting KB ingestion...${NC}"
+echo -e "Source: ${BLUE}$SOURCE_DIR${NC}"
+if [ -n "$COLLECTION" ]; then
+    echo -e "Collection: ${BLUE}$COLLECTION${NC}"
+fi
+echo ""
+
+# Run the script
+exec "${CMD[@]}"
